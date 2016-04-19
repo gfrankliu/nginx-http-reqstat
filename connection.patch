@@ -1,0 +1,60 @@
+Backported from tengine
+
+"received" struct member added for ngx_connection_s
+
+--- a/src/http/ngx_http_request.c
++++ b/src/http/ngx_http_request.c
+@@ -463,6 +463,7 @@ ngx_http_wait_request_handler(ngx_event_
+     }
+ 
+     b->last += n;
++    c->received += n;
+ 
+     if (hc->proxy_protocol) {
+         hc->proxy_protocol = 0;
+@@ -1406,6 +1407,7 @@ ngx_http_read_request_header(ngx_http_re
+     }
+ 
+     r->header_in->last += n;
++    c->received += n;
+ 
+     return n;
+ }
+@@ -2920,6 +2922,10 @@ ngx_http_set_keepalive(ngx_http_request_
+         c->data = r;
+ 
+         c->sent = 0;
++
++        /* bytes in the buffer have already been counted */
++        c->received = 0;
++
+         c->destroyed = 0;
+ 
+         if (rev->timer_set) {
+@@ -3173,6 +3179,7 @@ ngx_http_keepalive_handler(ngx_event_t *
+     }
+ 
+     c->sent = 0;
++    c->received = n;
+     c->destroyed = 0;
+ 
+     ngx_del_timer(rev);
+@@ -3264,6 +3271,8 @@ ngx_http_lingering_close_handler(ngx_eve
+             return;
+         }
+ 
++        c->received += n;
++
+     } while (rev->ready);
+ 
+     if (ngx_handle_read_event(rev, 0) != NGX_OK) {
+--- a/src/core/ngx_connection.h
++++ b/src/core/ngx_connection.h
+@@ -130,6 +130,7 @@ struct ngx_connection_s {
+     ngx_listening_t    *listening;
+ 
+     off_t               sent;
++    off_t               received;
+ 
+     ngx_log_t          *log;
+ 

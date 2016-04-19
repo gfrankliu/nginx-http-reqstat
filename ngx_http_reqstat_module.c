@@ -1,4 +1,4 @@
-#include <ngx_http_reqstat.h>
+#include "ngx_http_reqstat.h"
 
 typedef struct {
     ngx_uint_t                   recv;
@@ -11,6 +11,11 @@ typedef struct {
 static ngx_http_input_body_filter_pt  ngx_http_next_input_body_filter;
 static ngx_http_output_body_filter_pt ngx_http_next_output_body_filter;
 
+ngx_int_t  (*ngx_http_top_header_filter) (ngx_http_request_t *r);
+ngx_int_t  (*ngx_http_top_body_filter) (ngx_http_request_t *r, ngx_chain_t *ch);
+
+ngx_int_t  (*ngx_http_top_input_body_filter) (ngx_http_request_t *r,
+    ngx_buf_t *buf);
 
 off_t  ngx_http_reqstat_fields[13] = {
     NGX_HTTP_REQSTAT_BYTES_IN,
@@ -467,8 +472,12 @@ ngx_http_reqstat_log_handler(ngx_http_request_t *r)
 
                 utries++;
 
+               #if nginx_version <= 1009000
                 ms = (ngx_msec_int_t) (state[j].response_sec * 1000
                                                + state[j].response_msec);
+               #else
+                ms = (ngx_msec_int_t) state[j].response_time;
+               #endif
                 ms = ngx_max(ms, 0);
                 total_ms += ms;
 

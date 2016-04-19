@@ -6,6 +6,11 @@
 
 typedef struct ngx_http_reqstat_rbnode_s ngx_http_reqstat_rbnode_t;
 
+typedef ngx_int_t (*ngx_http_input_body_filter_pt)
+    (ngx_http_request_t *r, ngx_buf_t *buf);
+
+extern ngx_http_input_body_filter_pt     ngx_http_top_input_body_filter;
+
 
 struct ngx_http_reqstat_rbnode_s {
     u_char                       color;
