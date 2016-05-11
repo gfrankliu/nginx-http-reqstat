@@ -32,7 +32,7 @@ Example
         req_status_zone server "$host,$server_addr:$server_port" 10M;
 
         server {
-            location /us {
+            location /tenginestats {
                 req_status_show;
             }
 
@@ -40,7 +40,7 @@ Example
         }
     }
 
-* when you call '/us', you will get the results like this:
+* when you call '/tenginestats', you will get the results like this:
 
             www.taobao.com,127.0.0.1:80,162,6242,1,1,1,0,0,0,0,10,1,10,1
 
