@@ -11,9 +11,6 @@ typedef struct {
 static ngx_http_input_body_filter_pt  ngx_http_next_input_body_filter;
 static ngx_http_output_body_filter_pt ngx_http_next_output_body_filter;
 
-ngx_int_t  (*ngx_http_top_header_filter) (ngx_http_request_t *r);
-ngx_int_t  (*ngx_http_top_body_filter) (ngx_http_request_t *r, ngx_chain_t *ch);
-
 ngx_int_t  (*ngx_http_top_input_body_filter) (ngx_http_request_t *r,
     ngx_buf_t *buf);
 
