@@ -1,2 +1,24 @@
-* Initial check in, forked from tengine 2.1.0
+* Sync with the latest Tengine reqstat module (tengine 3.x):
+  - detailed status codes: http_200, 206, 302, 304, 403, 404, 416, 499,
+    500, 502, 503, 504, 508, http_other_detail_status
+  - upstream status: http_ups_4xx, http_ups_5xx
+  - directives req_status_show_field, req_status_bypass, req_status_lazy,
+    req_status_zone_add_indicator, req_status_zone_key_length,
+    req_status_zone_recycle
+  - recycling of rarely used keys when a zone is full
+  - statistics follow internal redirects
+  - dynamic module support
+* New: req_status_show_format prometheus
+* Works with stock nginx (tested 1.18 - 1.31), connection.patch is no longer
+  needed: bytes_in is $request_length, bytes_out is $bytes_sent
+* conn_total counts connections, not streams, for HTTP/2 and HTTP/3
+* Fixes over upstream: keys hidden from output when their first request was
+  not the first on a connection; bytes_out over-counted for requests finalized
+  before the rewrite phase; key truncation/lookup mismatch; crash on
+  "req_status_zone" with too few arguments; crash when the zone is too small
+  to hold any key; memory corruption when key length changed on reload;
+  division by zero in req_status_zone_recycle; status page sending headers
+  before the body could be built
+
 * Patched to work with nginx
+* Initial check in, forked from tengine 2.1.0
