@@ -1,0 +1,84 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    # weekly, to catch changes in nginx master
+    - cron: "17 3 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: nginx ${{ matrix.nginx }} (${{ matrix.link }})
+    runs-on: ubuntu-24.04
+
+    strategy:
+      fail-fast: false
+      matrix:
+        nginx: ["1.18.0", "1.24.0", "1.30.6", "1.31.7", "master"]
+        link: [static, dynamic]
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: module
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+              build-essential libpcre3-dev libpcre2-dev libssl-dev \
+              zlib1g-dev curl openssl python3-prometheus-client
+
+      - name: Fetch nginx
+        run: |
+          if [ "${{ matrix.nginx }}" = master ]; then
+              git clone --depth 1 https://github.com/nginx/nginx.git nginx
+              ln -s auto/configure nginx/configure
+          else
+              curl -sfL https://nginx.org/download/nginx-${{ matrix.nginx }}.tar.gz \
+                  | tar xz
+              mv nginx-${{ matrix.nginx }} nginx
+          fi
+
+      - name: Build
+        working-directory: nginx
+        run: |
+          if [ "${{ matrix.link }}" = static ]; then
+              add="--add-module=$GITHUB_WORKSPACE/module"
+          else
+              add="--with-compat --add-dynamic-module=$GITHUB_WORKSPACE/module"
+          fi
+
+          # older nginx releases are not warning-free with current
+          # compilers and OpenSSL 3; warnings in the module itself are
+          # checked below
+
+          ./configure --with-http_ssl_module --with-http_v2_module \
+              --with-debug --with-cc-opt="-Wno-error -Wall -Wextra -Wno-unused-parameter" \
+              $add
+
+          make -j"$(nproc)" 2>&1 | tee build.log
+          if [ "${{ matrix.link }}" = dynamic ]; then
+              make modules 2>&1 | tee -a build.log
+          fi
+
+          if grep -E 'ngx_http_reqstat[^ ]*\.[ch]:[0-9]+:[0-9]+: (warning|error)' build.log
+          then
+              echo "::error::compiler warnings in the module"
+              exit 1
+          fi
+
+      - name: Smoke test
+        run: |
+          if [ "${{ matrix.link }}" = static ]; then
+              module/t/smoke.sh "$PWD/nginx/objs/nginx"
+          else
+              module/t/smoke.sh "$PWD/nginx/objs/nginx" \
+                  "$PWD/nginx/objs/ngx_http_reqstat_module.so"
+          fi
