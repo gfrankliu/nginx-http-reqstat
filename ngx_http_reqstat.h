@@ -20,6 +20,15 @@
 
 #define NGX_HTTP_REQSTAT_FORMAT_TEXT        0
 #define NGX_HTTP_REQSTAT_FORMAT_PROMETHEUS  1
+#define NGX_HTTP_REQSTAT_FORMAT_JSON        2
+
+/* exact status codes tracked per key, see ngx_http_reqstat_count_code() */
+#define NGX_HTTP_REQSTAT_CODE_SLOTS  16
+#define NGX_HTTP_REQSTAT_CODE_NOUPS  0x10000
+#define NGX_HTTP_REQSTAT_CODE_LEN    (sizeof("999_upstream") - 1)
+
+/* pseudo field index of "status_codes" in req_status_show_field */
+#define NGX_HTTP_REQSTAT_FIELD_CODES  NGX_HTTP_REQSTAT_MAX
 
 
 #define variable_index(str, index)  { ngx_string(str), index }
@@ -72,6 +81,14 @@ struct ngx_http_reqstat_rbnode_s {
     ngx_atomic_t                 utries;
     ngx_atomic_t                 extra[NGX_HTTP_REQSTAT_USER];
 
+    /*
+     * slot value: (status + 1), plus 0x10000 when the request was proxied
+     * but the last upstream attempt returned no status; 0 is a free slot
+     */
+    ngx_atomic_t                 code[NGX_HTTP_REQSTAT_CODE_SLOTS];
+    ngx_atomic_t                 code_count[NGX_HTTP_REQSTAT_CODE_SLOTS];
+    ngx_atomic_t                 code_overflow;
+
     ngx_atomic_int_t             excess;
 
     ngx_msec_t                   last_visit;
@@ -89,6 +106,8 @@ typedef struct {
     ngx_int_t                    index;
     ngx_array_t                 *user_select;
     ngx_array_t                 *user_defined_str;
+    ngx_http_complex_value_t    *show_key;
+    ngx_array_t                 *show_locations;   /* main conf only */
 } ngx_http_reqstat_conf_t;
 
 
