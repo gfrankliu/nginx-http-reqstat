@@ -1,3 +1,5 @@
+[![CI](https://github.com/gfrankliu/nginx-http-reqstat/actions/workflows/ci.yml/badge.svg)](https://github.com/gfrankliu/nginx-http-reqstat/actions/workflows/ci.yml)
+
 Name
 ====
 
