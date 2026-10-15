@@ -201,7 +201,11 @@ grep -qi '^content-type: text/plain; version=0.0.4' "$WORK/headers" \
 "$PYTHON" "$T/check_prometheus.py" "$WORK/metrics" "p$P1" \
     || fail "prometheus check"
 
-if grep -E '\[(alert|crit|emerg)\]|exited on signal' "$WORK/logs/error.log"
+# older nginx with OpenSSL 3 logs a client closing TLS without close_notify
+# as crit; it is unrelated to the module
+
+if grep -E '\[(alert|crit|emerg)\]|exited on signal' "$WORK/logs/error.log" \
+   | grep -v 'unexpected eof while reading'
 then
     fail "errors in error.log"
 fi

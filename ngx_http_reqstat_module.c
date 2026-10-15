@@ -443,7 +443,16 @@ ngx_http_reqstat_create_loc_conf(ngx_conf_t *cf)
     conf->display = NGX_CONF_UNSET_PTR;
     conf->user_select = NGX_CONF_UNSET_PTR;
     conf->user_defined_str = NGX_CONF_UNSET_PTR;
-    conf->show_key = NGX_CONF_UNSET_PTR;
+
+    /*
+     * set by ngx_pcalloc():
+     *
+     *     conf->show_key = NULL;
+     *
+     * NULL rather than NGX_CONF_UNSET_PTR, as in older nginx (e.g. 1.18)
+     * ngx_http_set_complex_value_slot() takes any non-NULL value
+     * as already set
+     */
 
     return conf;
 }
@@ -465,7 +474,10 @@ ngx_http_reqstat_merge_loc_conf(ngx_conf_t *cf, void *parent,
     ngx_conf_merge_ptr_value(conf->user_select, prev->user_select, NULL);
     ngx_conf_merge_ptr_value(conf->user_defined_str, prev->user_defined_str,
                              NULL);
-    ngx_conf_merge_ptr_value(conf->show_key, prev->show_key, NULL);
+
+    if (conf->show_key == NULL) {
+        conf->show_key = prev->show_key;
+    }
 
     return NGX_CONF_OK;
 }
