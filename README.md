@@ -77,6 +77,7 @@ Example
             location /metrics {
                 req_status_show;
                 req_status_show_format prometheus;
+                allow 127.0.0.1;
                 allow 10.0.0.0/8;
                 deny all;
             }
@@ -181,6 +182,66 @@ Average latency can be computed in PromQL, e.g.
 `req_status_show_field` also applies to the Prometheus format: only the selected
 fields are exposed. Keep in mind that every distinct key becomes a time series, so
 avoid high-cardinality keys (such as `$uri` or `$remote_addr`) when scraping.
+
+Scraping with Prometheus
+------------------------
+
+Serve the metrics from a dedicated `server` block, on a separate port bound to an
+internal address, so scrapes do not go through the application listener (its TLS,
+rate limits, logs, etc) and are not counted as traffic:
+
+    http {
+        req_status_zone server "$host,$server_addr:$server_port" 10M;
+
+        # application traffic
+        server {
+            listen 80;
+            req_status server;
+            ...
+        }
+
+        # metrics only
+        server {
+            listen 10.0.0.5:9145;      # or 127.0.0.1:9145 if Prometheus is local
+            access_log off;
+
+            location = /metrics {
+                req_status_show;
+                req_status_show_format prometheus;
+                req_status_bypass 1;   # only needed if req_status is set at http level
+                allow 127.0.0.1;
+                allow 10.0.0.0/8;
+                deny all;
+            }
+
+            location / {
+                return 404;
+            }
+        }
+    }
+
+and in `prometheus.yml`:
+
+    scrape_configs:
+      - job_name: nginx-reqstat
+        scrape_interval: 30s
+        static_configs:
+          - targets: ["10.0.0.5:9145"]
+
+A separate port isolates the network path, not CPU: nginx has no per-listener
+workers, so a scrape is handled by a regular worker alongside other traffic.
+Building the response briefly holds each zone's shared memory lock while keys are
+copied (this is cheap), then formats roughly 35 samples per key in that worker.
+That is negligible for hundreds of keys, but a zone with tens of thousands of keys
+yields tens of megabytes per scrape and delays that worker's other connections.
+To keep scrapes cheap:
+
+* keep key cardinality low, e.g. host, server or upstream, not `$uri` or `$remote_addr`;
+* expose only the zones and fields you use, e.g.
+  `req_status_show server;` and
+  `req_status_show_field req_total http_2xx http_4xx http_5xx http_502 http_503 http_504 rt ups_rt;`;
+* use a moderate scrape interval (15-30s); counters are cumulative, so scraping
+  more often adds no information.
 
 Directives
 ==========
