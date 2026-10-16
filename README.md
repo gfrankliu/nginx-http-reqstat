@@ -94,6 +94,53 @@ Example
         }
     }
 
+Status codes per virtual host, as JSON on a local port (see [JSON format](#json-format)):
+
+    http {
+
+        req_status_zone upstream_stats "$host:$server_port" 10M;
+
+        upstream backend {
+            server 10.0.0.10:8080;
+        }
+
+        server {
+            listen 80;
+
+            location / {
+                proxy_pass http://backend;
+                req_status upstream_stats;
+            }
+        }
+
+        server {
+            listen 127.0.0.1:8090;
+
+            location ~/upstreamstats$ {
+                access_log off;
+                allow 127.0.0.1;
+                deny all;
+                req_status_show upstream_stats;
+                req_status_show_format json;
+            }
+
+            location ~/upstreamstats/(?<vhost>[^/]+)$ {
+                access_log off;
+                allow 127.0.0.1;
+                deny all;
+                req_status_show upstream_stats;
+                req_status_show_format json;
+                req_status_show_key $vhost;
+            }
+        }
+    }
+
+* `/upstreamstats` returns all keys, e.g.
+  `{"www.example.com:80":{"200":1520,"404":3,"499_upstream":1}}`
+
+* `/upstreamstats/www.example.com:80` returns `{"200":1520,"404":3,"499_upstream":1}`,
+  or a `404` with `{"message":"Invalid key","key":"..."}` for an unknown key
+
 Plain text format
 -----------------
 
@@ -219,33 +266,15 @@ as a JSON object. It needs exactly one zone, given in `req_status_show`:
      "api.example.com:443":{"200":877,"502":2}}
 
 Combined with `req_status_show_key`, only that key's object is shown, or a
-`404` with `{"message":"Invalid key","key":"..."}` when the key is unknown:
-
-    req_status_zone vhost "$host:$server_port" 10M;
-    req_status vhost;
-
-    server {
-        listen 127.0.0.1:9145;
-
-        location = /upstream_stats {
-            req_status_show vhost;
-            req_status_show_format json;
-            req_status_bypass 1;
-        }
-
-        location ~ ^/upstream_stats/(?<vhost>[^/]+)$ {
-            req_status_show vhost;
-            req_status_show_format json;
-            req_status_show_key $vhost;
-            req_status_bypass 1;
-        }
-    }
+`404` with `{"message":"Invalid key","key":"..."}` when the key is unknown. See
+the second [example](#example) for a complete configuration.
 
 This is the same output as the earlier Lua based collector
 (`collect_upstream_stats.lua`, `upstream_stats_all.lua` and
-`upstream_stats_by_vhost.lua` with an `upstream_stats` shared dict), so it can
-replace it: drop the `lua_shared_dict`, the `log_by_lua_file` and `content_by_lua_file`
-directives, and use the zone key in place of `$upstream_stats_key`.
+`upstream_stats_by_vhost.lua` with an `upstream_stats` shared dict), so the
+example can replace it: drop the `lua_shared_dict`, the
+`set $upstream_stats_key ...`, the `log_by_lua_file` and the
+`content_by_lua_file` directives.
 
 Scraping with Prometheus
 ------------------------
