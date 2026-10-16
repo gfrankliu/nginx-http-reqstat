@@ -155,7 +155,7 @@ want="p$P1,6,200:2;404:1;502:1;418:1;499_upstream:1"
 [ "$got" = "$want" ] || fail "status codes: expected '$want', got '$got'"
 echo "ok: $want"
 
-# json, same shape as the former lua endpoints
+# json: all keys, a single key, an unknown key
 
 "$PYTHON" - "$P1" "$P2" <<'PYEOF2' || fail "json check"
 import json, sys, urllib.request, urllib.error

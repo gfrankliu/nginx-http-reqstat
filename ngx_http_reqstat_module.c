@@ -2096,7 +2096,6 @@ ngx_http_reqstat_write_prom_codes(ngx_http_reqstat_writer_t *w,
 
 
 /*
- * Same shape as the Lua based collector this replaces:
  * {"<key>": {"200": 12, "499_upstream": 1}, ...}, or just the inner
  * object when a single key is shown.
  */

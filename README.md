@@ -269,13 +269,6 @@ Combined with `req_status_show_key`, only that key's object is shown, or a
 `404` with `{"message":"Invalid key","key":"..."}` when the key is unknown. See
 the second [example](#example) for a complete configuration.
 
-This is the same output as the earlier Lua based collector
-(`collect_upstream_stats.lua`, `upstream_stats_all.lua` and
-`upstream_stats_by_vhost.lua` with an `upstream_stats` shared dict), so the
-example can replace it: drop the `lua_shared_dict`, the
-`set $upstream_stats_key ...`, the `log_by_lua_file` and the
-`content_by_lua_file` directives.
-
 Scraping with Prometheus
 ------------------------
 
