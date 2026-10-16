@@ -20,8 +20,8 @@ Description
 * The information is divided into different zones, and each zone is independent.
 
 * The status information is about connections, requests, response status codes
-  (by class and for selected individual codes such as 502/503/504),
-  input and output flows, rt, upstreams, and so on.
+  (by class, for selected individual codes such as 502/503/504, and every exact
+  code seen), input and output flows, rt, upstreams, and so on.
 
 * It shows all the results by default, and can be set to show part of them by specifying zones.
 
@@ -29,7 +29,9 @@ Description
 
 * It recycles out-of-date running status information when a zone is full.
 
-* It supports defining output fields, and a Prometheus output format.
+* It supports defining output fields, and plain text, Prometheus and JSON output formats.
+
+* It can show a single key, e.g. the status of one virtual host.
 
 * It follows the request processing flow, so internal redirects will not affect monitoring.
 
@@ -92,6 +94,53 @@ Example
         }
     }
 
+Status codes per virtual host, as JSON on a local port (see [JSON format](#json-format)):
+
+    http {
+
+        req_status_zone upstream_stats "$host:$server_port" 10M;
+
+        upstream backend {
+            server 10.0.0.10:8080;
+        }
+
+        server {
+            listen 80;
+
+            location / {
+                proxy_pass http://backend;
+                req_status upstream_stats;
+            }
+        }
+
+        server {
+            listen 127.0.0.1:8090;
+
+            location ~/upstreamstats$ {
+                access_log off;
+                allow 127.0.0.1;
+                deny all;
+                req_status_show upstream_stats;
+                req_status_show_format json;
+            }
+
+            location ~/upstreamstats/(?<vhost>[^/]+)$ {
+                access_log off;
+                allow 127.0.0.1;
+                deny all;
+                req_status_show upstream_stats;
+                req_status_show_format json;
+                req_status_show_key $vhost;
+            }
+        }
+    }
+
+* `/upstreamstats` returns all keys, e.g.
+  `{"www.example.com:80":{"200":1520,"404":3,"499_upstream":1}}`
+
+* `/upstreamstats/www.example.com:80` returns `{"200":1520,"404":3,"499_upstream":1}`,
+  or a `404` with `{"message":"Invalid key","key":"..."}` for an unknown key
+
 Plain text format
 -----------------
 
@@ -140,6 +189,11 @@ Plain text format
 
     * You can use names in the left column to define output format, with directive 'req_status_show_field'
 
+    * One more field, **status_codes**, is only shown when selected with
+      `req_status_show_field`. It lists every exact status code seen for the key,
+      in the order first seen, e.g. `200:1520;404:3;429:7;499_upstream:1`; see
+      [Exact status codes](#exact-status-codes).
+
     * The first 14 columns are the same as in earlier versions of this module
       (Tengine 2.1.0), so existing parsers keep working; the new columns are appended.
 
@@ -173,6 +227,7 @@ Prometheus text exposition format (version 0.0.4). Every sample carries the labe
 | `nginx_reqstat_upstream_tries_total`                 |                         | ups_tries                        |
 | `nginx_reqstat_upstream_response_time_seconds_total` |                         | ups_rt (converted to seconds)    |
 | `nginx_reqstat_upstream_responses_total`             | `status` = 4xx, 5xx     | http_ups_4xx, http_ups_5xx       |
+| `nginx_reqstat_status_codes_total`                   | `code` = exact code, e.g. 429, 499_upstream, other | status_codes |
 | `nginx_reqstat_indicator_total`                      | `name` = variable name  | user defined indicators          |
 
 Average latency can be computed in PromQL, e.g.
@@ -182,6 +237,37 @@ Average latency can be computed in PromQL, e.g.
 `req_status_show_field` also applies to the Prometheus format: only the selected
 fields are exposed. Keep in mind that every distinct key becomes a time series, so
 avoid high-cardinality keys (such as `$uri` or `$remote_addr`) when scraping.
+
+Exact status codes
+------------------
+
+Besides the fixed status columns, every key counts each exact status code it
+returns (`$status`), so codes without a column of their own (301, 400, 401, 429,
+...) are visible too. A code gets the suffix `_upstream` when the request was
+proxied but the last upstream attempt returned no status (`$upstream_status` ends
+with `-`), i.e. the response was produced by nginx, typically `499_upstream` when
+the client gave up while waiting for the backend.
+
+Each key has room for 16 distinct codes, which is plenty for a single virtual
+host; further distinct codes are counted as `other`. This adds about 270 bytes to
+every key in the shared memory zone.
+
+The codes are shown by the `status_codes` field in the plain text format, the
+`nginx_reqstat_status_codes_total` metric in the Prometheus format, and the JSON
+format.
+
+JSON format
+-----------
+
+With `req_status_show_format json;` the exact status codes of each key are shown
+as a JSON object. It needs exactly one zone, given in `req_status_show`:
+
+    {"www.example.com:443":{"200":1520,"404":3,"499_upstream":1},
+     "api.example.com:443":{"200":877,"502":2}}
+
+Combined with `req_status_show_key`, only that key's object is shown, or a
+`404` with `{"message":"Invalid key","key":"..."}` when the key is unknown. See
+the second [example](#example) for a complete configuration.
 
 Scraping with Prometheus
 ------------------------
@@ -295,14 +381,28 @@ Display the status information. You can specify zones to display.
 req_status_show_format
 -------------------------------
 
-**Syntax**: *req_status_show_format text|prometheus*
+**Syntax**: *req_status_show_format text|prometheus|json*
 
 **Default**: *text*
 
 **Context**: *loc*
 
 Output format used by `req_status_show`. `prometheus` produces the Prometheus text
-exposition format, described above.
+exposition format, `json` the exact status codes per key, both described above.
+`json` requires exactly one zone in `req_status_show`.
+
+
+req_status_show_key
+-------------------------------
+
+**Syntax**: *req_status_show_key value*
+
+**Default**: *none*
+
+**Context**: *loc*
+
+Show only the key equal to 'value', in which variables can be used, e.g.
+`req_status_show_key $arg_host;`. If there is no such key, the response is `404`.
 
 
 req_status_show_field

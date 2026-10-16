@@ -1,3 +1,9 @@
+* Exact status codes per key, with a "_upstream" suffix when a proxied
+  request got no status from its last upstream attempt (e.g. 499_upstream):
+  "status_codes" field, nginx_reqstat_status_codes_total metric
+* New: req_status_show_format json, exact status codes per key
+* New: req_status_show_key, to show a single key (404 if unknown)
+
 * Sync with the latest Tengine reqstat module (tengine 3.x):
   - detailed status codes: http_200, 206, 302, 304, 403, 404, 416, 499,
     500, 502, 503, 504, 508, http_other_detail_status

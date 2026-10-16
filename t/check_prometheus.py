@@ -25,15 +25,19 @@ def main(path, key):
             samples[(s.name, extra)] = s.value
 
     expected = {
-        ("nginx_reqstat_connections_total", ()): 2,
-        ("nginx_reqstat_requests_total", ()): 4,
+        ("nginx_reqstat_connections_total", ()): 4,
+        ("nginx_reqstat_requests_total", ()): 6,
         ("nginx_reqstat_responses_total", (("status", "2xx"),)): 2,
         ("nginx_reqstat_responses_total", (("status", "5xx"),)): 1,
         ("nginx_reqstat_responses_by_code_total", (("code", "200"),)): 2,
         ("nginx_reqstat_responses_by_code_total", (("code", "404"),)): 1,
         ("nginx_reqstat_responses_by_code_total", (("code", "502"),)): 1,
-        ("nginx_reqstat_upstream_requests_total", ()): 1,
+        ("nginx_reqstat_upstream_requests_total", ()): 2,
         ("nginx_reqstat_upstream_responses_total", (("status", "5xx"),)): 1,
+        ("nginx_reqstat_status_codes_total", (("code", "200"),)): 2,
+        ("nginx_reqstat_status_codes_total", (("code", "418"),)): 1,
+        ("nginx_reqstat_status_codes_total", (("code", "499_upstream"),)): 1,
+        ("nginx_reqstat_status_codes_total", (("code", "502"),)): 1,
     }
 
     for k, v in expected.items():
